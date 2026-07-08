@@ -1,0 +1,25 @@
+services:
+  backend:
+    build: ./backend
+    container_name: troubleshooter-backend
+    env_file: .env
+    environment:
+      - KUBECONFIG=/root/.kube/config
+    volumes:
+      - ./kind-kubeconfig:/root/.kube/config:ro
+      - app_data:/data
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: troubleshooter-frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+
+volumes:
+  app_data:
