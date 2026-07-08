@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+.env
+*.db
+data/
+kind-kubeconfig
+.pytest_cache/
+.idea/
+.vscode/
+.DS_Store
+node_modules/
