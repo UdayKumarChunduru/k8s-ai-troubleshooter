@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>K8s AI Troubleshooter</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>K8s AI Troubleshooter</h1>
+    <div id="user-box" class="hidden">
+      <span id="whoami"></span>
+      <button id="logout-btn">Log out</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="auth-panel">
+      <h2 id="auth-title">Log in</h2>
+      <form id="auth-form">
+        <input type="text" id="username" placeholder="Username" required minlength="3">
+        <input type="password" id="password" placeholder="Password" required minlength="8">
+        <button type="submit" id="auth-submit">Log in</button>
+      </form>
+      <p>
+        <a href="#" id="auth-toggle">Need an account? Register</a>
+      </p>
+      <p id="auth-error" class="error hidden"></p>
+    </section>
+
+    <section id="app-panel" class="hidden">
+      <h2>New investigation</h2>
+      <form id="investigate-form">
+        <input type="text" id="namespace" placeholder="Namespace" required>
+        <input type="text" id="deployment" placeholder="Deployment (optional)">
+        <button type="submit">Investigate</button>
+      </form>
+
+      <div id="progress" class="hidden">
+        <h3>Investigation <span id="current-id"></span></h3>
+        <p>Status: <strong id="current-status">queued</strong></p>
+        <div id="result" class="hidden">
+          <p><strong>Pattern:</strong> <span id="result-pattern"></span></p>
+          <p><strong>Confidence:</strong> <span id="result-confidence"></span></p>
+          <p><strong>Root cause:</strong></p>
+          <p id="result-cause"></p>
+          <p><strong>Fix commands:</strong></p>
+          <pre id="result-commands"></pre>
+        </div>
+        <p id="result-error" class="error hidden"></p>
+      </div>
+
+      <h2>History</h2>
+      <ul id="history"></ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
