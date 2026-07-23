@@ -11,15 +11,27 @@ SYSTEM_PROMPT = (
     "Base the fix commands on the actual namespace and resource names in the evidence."
 )
 
+_MAX_LOG_CHARS = 1500
+
+
+def _truncate_logs(evidence: dict) -> dict:
+    for pod in evidence.get("pods", []):
+        for c in list(pod.get("containers", [])) + list(pod.get("init_containers", [])):
+            for key in ("logs", "previous_logs"):
+                text = c.get(key)
+                if isinstance(text, str) and len(text) > _MAX_LOG_CHARS:
+                    c[key] = "...[truncated, showing the last lines]...\n" + text[-_MAX_LOG_CHARS:]
+    return evidence
+
 
 def _user_prompt(evidence: dict, pattern: str) -> str:
-    return (
-        f"Detected failure pattern: {pattern}\n"
-        f"Evidence:\n{json.dumps(evidence, indent=1)[:12000]}"
-    )
+    trimmed = _truncate_logs(evidence)
+    evidence_str = json.dumps(trimmed)
+    return f"Detected failure pattern: {pattern}\nEvidence:\n{evidence_str}"
 
 
 def _parse(text: str) -> dict:
+    # strip markdown fences some models wrap around JSON
     text = text.strip()
     if text.startswith("```"):
         text = text.strip("`")
@@ -28,8 +40,21 @@ def _parse(text: str) -> dict:
         text = text.strip()
     try:
         data = json.loads(text)
+        root_cause = str(data.get("root_cause", "")).strip()
+        if not root_cause:
+            return {
+                "root_cause": (
+                    "The model returned an empty response, most likely because the "
+                    "evidence for this investigation was large enough to leave no room "
+                    "in its context/output budget for an actual answer. Try again, or "
+                    "increase OLLAMA_NUM_CTX / OLLAMA_NUM_PREDICT if this repeats for "
+                    "this pattern."
+                ),
+                "confidence": 0,
+                "fix_commands": [],
+            }
         return {
-            "root_cause": str(data.get("root_cause", "")),
+            "root_cause": root_cause,
             "confidence": int(data.get("confidence", 50)),
             "fix_commands": [str(c) for c in data.get("fix_commands", [])],
         }
@@ -69,6 +94,8 @@ class OllamaProvider:
         self.base_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
         self.model = os.environ.get("OLLAMA_MODEL", "qwen3:4b")
         self.timeout = int(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "300"))
+        self.num_ctx = int(os.environ.get("OLLAMA_NUM_CTX", "8192"))
+        self.num_predict = int(os.environ.get("OLLAMA_NUM_PREDICT", "800"))
 
     def analyze(self, evidence: dict, pattern: str) -> dict:
         prompt = f"{SYSTEM_PROMPT}\n\n{_user_prompt(evidence, pattern)}"
@@ -80,6 +107,10 @@ class OllamaProvider:
                 "stream": False,
                 "format": "json",
                 "think": False,
+                "options": {
+                    "num_ctx": self.num_ctx,
+                    "num_predict": self.num_predict,
+                },
             },
             timeout=self.timeout,
         )

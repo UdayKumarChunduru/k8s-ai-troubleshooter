@@ -91,3 +91,23 @@ def test_unknown_provider_raises():
             assert False, "expected ValueError"
         except ValueError:
             pass
+
+
+def test_parse_reports_empty_response_honestly():
+    result = llm_client._parse(json.dumps({}))
+    assert result["confidence"] == 0
+    assert "empty response" in result["root_cause"].lower()
+
+    result = llm_client._parse(json.dumps({"root_cause": "   ", "confidence": 50}))
+    assert result["confidence"] == 0
+
+
+def test_truncate_logs_keeps_the_end_not_the_start():
+    long_log = "x" * 5000 + "ERROR: real problem is here at the end"
+    evidence = {"pods": [{"containers": [{"logs": long_log, "previous_logs": ""}],
+                          "init_containers": []}]}
+    trimmed = llm_client._truncate_logs(evidence)
+    result_log = trimmed["pods"][0]["containers"][0]["logs"]
+    assert len(result_log) < len(long_log)
+    assert "real problem is here at the end" in result_log
+    json.dumps(trimmed)
