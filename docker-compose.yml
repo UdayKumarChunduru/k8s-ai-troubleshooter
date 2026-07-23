@@ -4,12 +4,37 @@ services:
     container_name: troubleshooter-backend
     env_file: .env
     environment:
-      - KUBECONFIG=/root/.kube/config
+      - KUBECONFIG=/home/app/.kube/config
+      - REDIS_URL=redis://redis:6379
     volumes:
-      - ./kind-kubeconfig:/root/.kube/config:ro
+      - ./kind-kubeconfig:/home/app/.kube/config:ro
       - app_data:/data
     ports:
       - "8000:8000"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    container_name: troubleshooter-worker
+    command: rq worker investigations --url redis://redis:6379
+    env_file: .env
+    environment:
+      - KUBECONFIG=/home/app/.kube/config
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./kind-kubeconfig:/home/app/.kube/config:ro
+      - app_data:/data
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: troubleshooter-redis
+    ports:
+      - "6379:6379"
     restart: unless-stopped
 
   frontend:
