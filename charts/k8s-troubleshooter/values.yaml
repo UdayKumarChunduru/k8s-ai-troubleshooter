@@ -60,9 +60,15 @@ llm:
   ollama:
     url: "http://ollama.default.svc.cluster.local:11434"
     model: "qwen3:4b"
+    timeoutSeconds: 300
   bedrock:
     region: "us-east-1"
     modelId: "anthropic.claude-3-5-sonnet-20240620-v1:0"
+
+persistence:
+  dataSize: 1Gi
+  metricsSize: 256Mi
+  storageClassName: ""   # empty uses the cluster's default StorageClass
 
 secrets:
   existingSecret: ""
