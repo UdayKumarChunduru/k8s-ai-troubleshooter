@@ -1,16 +1,28 @@
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from prometheus_fastapi_instrumentator import Instrumentator
 
 import auth
 import jobs
 import storage
 from models import Credentials, InvestigationRequest, InvestigationResponse, TokenResponse
 
-app = FastAPI(title="AI Kubernetes Troubleshooting Agent", version="1.0.0")
+app = FastAPI(title="AI Kubernetes Troubleshooting Agent", version="2.0.0")
+
+auth.validate_jwt_secret_on_startup()
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/contexts")
+def contexts(user_id: int = Depends(auth.current_user_id)):
+    import k8s_collector
+
+    return {"contexts": k8s_collector.list_contexts()}
 
 
 @app.post("/auth/register", response_model=TokenResponse)
@@ -29,8 +41,8 @@ def start_investigation(
     background: BackgroundTasks,
     user_id: int = Depends(auth.current_user_id),
 ):
-    inv_id = storage.create_investigation(user_id, req.namespace, req.deployment)
-    background.add_task(jobs.run_investigation, inv_id, req.namespace, req.deployment)
+    inv_id = storage.create_investigation(user_id, req.namespace, req.deployment, req.cluster_context)
+    jobs.enqueue(background, inv_id, req.namespace, req.deployment, req.cluster_context)
     return storage.get_investigation(inv_id, user_id)
 
 
