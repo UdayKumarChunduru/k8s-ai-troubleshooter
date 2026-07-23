@@ -1,4 +1,6 @@
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+import os
+
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Response
 from prometheus_fastapi_instrumentator import Instrumentator
 
 import auth
@@ -10,7 +12,18 @@ app = FastAPI(title="AI Kubernetes Troubleshooting Agent", version="2.0.0")
 
 auth.validate_jwt_secret_on_startup()
 
-Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+instrumentator = Instrumentator().instrument(app)
+
+if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+    from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, generate_latest, multiprocess
+
+    @app.get("/metrics", include_in_schema=False)
+    def metrics():
+        registry = CollectorRegistry()
+        multiprocess.MultiProcessCollector(registry)
+        return Response(generate_latest(registry), media_type=CONTENT_TYPE_LATEST)
+else:
+    instrumentator.expose(app, endpoint="/metrics", include_in_schema=False)
 
 
 @app.get("/health")

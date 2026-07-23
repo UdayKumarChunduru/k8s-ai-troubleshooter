@@ -6,11 +6,13 @@ services:
     environment:
       - KUBECONFIG=/home/app/.kube/config
       - REDIS_URL=redis://redis:6379
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./kind-kubeconfig:/home/app/.kube/config:ro
       - app_data:/data
+      - prometheus_multiproc:/tmp/prometheus_multiproc
     ports:
       - "8000:8000"
     depends_on:
@@ -25,11 +27,13 @@ services:
     environment:
       - KUBECONFIG=/home/app/.kube/config
       - REDIS_URL=redis://redis:6379
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./kind-kubeconfig:/home/app/.kube/config:ro
       - app_data:/data
+      - prometheus_multiproc:/tmp/prometheus_multiproc
     depends_on:
       - redis
     restart: unless-stopped
@@ -61,4 +65,5 @@ services:
 
 volumes:
   app_data:
+  prometheus_multiproc:
   # ollama_data:
