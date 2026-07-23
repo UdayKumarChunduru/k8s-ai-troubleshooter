@@ -20,6 +20,7 @@ if REDIS_URL:
         _redis_conn = Redis.from_url(REDIS_URL)
         _queue = Queue("investigations", connection=_redis_conn)
         _retry = Retry(max=3, interval=[10, 30, 60])
+        _job_timeout = int(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "300")) + 120
     except Exception:
         logger.exception("REDIS_URL set but rq/redis unavailable, falling back to BackgroundTasks")
         _queue = None
@@ -28,7 +29,10 @@ if REDIS_URL:
 def enqueue(background_tasks, inv_id: int, namespace: str, deployment: str | None,
             cluster_context: str | None = None):
     if _queue is not None:
-        _queue.enqueue(run_investigation, inv_id, namespace, deployment, cluster_context, retry=_retry)
+        _queue.enqueue(
+            run_investigation, inv_id, namespace, deployment, cluster_context,
+            retry=_retry, job_timeout=_job_timeout,
+        )
     else:
         background_tasks.add_task(run_investigation, inv_id, namespace, deployment, cluster_context)
 
@@ -36,7 +40,6 @@ def enqueue(background_tasks, inv_id: int, namespace: str, deployment: str | Non
 def run_investigation(
     inv_id: int, namespace: str, deployment: str | None, cluster_context: str | None = None
 ):
-
     import metrics
 
     start = time.monotonic()
