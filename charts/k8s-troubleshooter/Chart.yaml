@@ -1,0 +1,19 @@
+apiVersion: v2
+name: k8s-troubleshooter
+description: Self-hosted Kubernetes-native AI troubleshooting platform
+type: application
+version: 1.0.0
+appVersion: "2.0.0"
+keywords:
+  - kubernetes
+  - troubleshooting
+  - observability
+  - devops
+home: https://github.com/udaykumarchunduru/k8s-ai-troubleshooter
+maintainers:
+  - name: Uday Kumar Chunduru
+dependencies:
+  - name: redis
+    version: "18.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
