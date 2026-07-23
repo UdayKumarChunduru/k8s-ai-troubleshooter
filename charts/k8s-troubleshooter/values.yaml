@@ -1,0 +1,96 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/udaykumarchunduru/k8s-troubleshooter-backend
+  tag: latest
+  pullPolicy: IfNotPresent
+
+frontend:
+  enabled: true
+  image:
+    repository: ghcr.io/udaykumarchunduru/k8s-troubleshooter-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  host: troubleshooter.example.com
+  tls:
+    enabled: false
+    secretName: troubleshooter-tls
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+rbac:
+  create: true
+
+llm:
+  provider: ollama   # openrouter | ollama | bedrock
+  openrouter:
+    model: "meta-llama/llama-3.1-8b-instruct"
+  ollama:
+    url: "http://ollama.default.svc.cluster.local:11434"
+    model: "llama3.1:8b"
+  bedrock:
+    region: "us-east-1"
+    modelId: "anthropic.claude-3-5-sonnet-20240620-v1:0"
+
+secrets:
+  existingSecret: ""
+  jwtSecret: ""
+  llmApiKey: ""
+
+env:
+  appEnv: production
+  logTailLines: 60
+
+prometheus:
+  enabled: false
+  serviceMonitor:
+    interval: 30s
+    labels: {}
+
+redis:
+  enabled: false
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+
+kubecontexts:
+  enabled: false
+  contexts: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
