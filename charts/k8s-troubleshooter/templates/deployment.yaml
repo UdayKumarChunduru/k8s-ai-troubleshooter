@@ -9,10 +9,12 @@ spec:
   selector:
     matchLabels:
       {{- include "k8s-troubleshooter.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
   template:
     metadata:
       labels:
         {{- include "k8s-troubleshooter.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
       annotations:
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
     spec:

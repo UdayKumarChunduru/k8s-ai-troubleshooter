@@ -4,6 +4,7 @@ metadata:
   name: {{ include "k8s-troubleshooter.fullname" . }}
   labels:
     {{- include "k8s-troubleshooter.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -13,3 +14,4 @@ spec:
       name: http
   selector:
     {{- include "k8s-troubleshooter.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: backend

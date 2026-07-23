@@ -10,4 +10,5 @@ spec:
   selector:
     matchLabels:
       {{- include "k8s-troubleshooter.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
 {{- end }}
