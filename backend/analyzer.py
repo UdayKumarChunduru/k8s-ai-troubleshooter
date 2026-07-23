@@ -1,5 +1,6 @@
 WAITING_ORDER = [
     ("ImagePullBackOff", ("ImagePullBackOff", "ErrImagePull")),
+    ("ConfigError", ("CreateContainerConfigError",)),
     ("CrashLoopBackOff", ("CrashLoopBackOff",)),
 ]
 
@@ -22,8 +23,23 @@ def detect_pattern(evidence: dict) -> str:
             if c.get("ready") is False and current.get("state") == "running":
                 not_ready_containers.append(c)
 
+    init_waiting_reasons = []
+    init_terminated_bad = False
+    for pod in evidence.get("pods", []):
+        for ic in pod.get("init_containers", []):
+            current = ic.get("current", {})
+            if current.get("state") == "waiting" and current.get("reason"):
+                init_waiting_reasons.append(current["reason"])
+            if current.get("state") == "terminated" and current.get("exit_code", 0) not in (0, None):
+                init_terminated_bad = True
+
     event_reasons = [ev.get("reason", "") for ev in evidence.get("events", [])]
     event_messages = " ".join(ev.get("message", "") or "" for ev in evidence.get("events", []))
+
+    if init_terminated_bad or any(
+        r in ("CrashLoopBackOff", "Error") for r in init_waiting_reasons
+    ):
+        return "InitContainerError"
 
     if "OOMKilled" in terminated_reasons:
         return "OOMKilled"
@@ -33,6 +49,12 @@ def detect_pattern(evidence: dict) -> str:
         for pod in evidence.get("pods", [])
     ):
         return "Evicted"
+
+    node_not_ready_hints = ("node is not ready", "nodenotready", "node was not ready")
+    if _has_event(evidence, ("NodeNotReady", "TaintManagerEviction"), ()) or any(
+        h in event_messages.lower() for h in node_not_ready_hints
+    ):
+        return "NodeNotReady"
 
     for pod in evidence.get("pods", []):
         if pod.get("phase") == "Pending":
@@ -44,6 +66,9 @@ def detect_pattern(evidence: dict) -> str:
                 return "Pending/NodeSelector"
             if _has_event(evidence, ("FailedScheduling",), ()):
                 return "Pending/ResourcePressure"
+
+    if _has_event(evidence, ("FailedMount", "FailedAttachVolume"), ()):
+        return "FailedMount"
 
     pdb_hints = ("PodDisruptionBudget", "disruption budget")
     if _has_event(evidence, ("FailedCreate", "FailedRollout"), pdb_hints):

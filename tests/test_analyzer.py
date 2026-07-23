@@ -146,3 +146,46 @@ def test_unhealthy_fallback():
         "events": [],
     }
     assert analyzer.detect_pattern(evidence) == "unhealthy"
+
+
+def test_config_error():
+    evidence = {
+        "pods": [_pod([_container(state="waiting", reason="CreateContainerConfigError")])],
+        "events": [
+            {"reason": "Failed", "message": "secret \"app-secrets\" not found",
+             "object": "Pod/p", "count": 1}
+        ],
+    }
+    assert analyzer.detect_pattern(evidence) == "ConfigError"
+
+
+def test_failed_mount():
+    evidence = {
+        "pods": [_pod([_container()])],
+        "events": [
+            {"reason": "FailedMount",
+             "message": "Unable to attach or mount volumes: unmounted volumes=[data]",
+             "object": "Pod/p", "count": 5}
+        ],
+    }
+    assert analyzer.detect_pattern(evidence) == "FailedMount"
+
+
+def test_init_container_error():
+    pod = _pod([_container()])
+    pod["init_containers"] = [
+        {"name": "wait-for-db", "current": {"state": "waiting", "reason": "CrashLoopBackOff"}, "logs": ""}
+    ]
+    evidence = {"pods": [pod], "events": []}
+    assert analyzer.detect_pattern(evidence) == "InitContainerError"
+
+
+def test_node_not_ready():
+    evidence = {
+        "pods": [_pod([_container()])],
+        "events": [
+            {"reason": "NodeNotReady", "message": "node is not ready",
+             "object": "Pod/p", "count": 2}
+        ],
+    }
+    assert analyzer.detect_pattern(evidence) == "NodeNotReady"

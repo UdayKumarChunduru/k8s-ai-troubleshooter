@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: init-container-fail-demo
+  labels:
+    app: init-container-fail-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: init-container-fail-demo
+  template:
+    metadata:
+      labels:
+        app: init-container-fail-demo
+    spec:
+      initContainers:
+        - name: wait-for-dependency
+          image: busybox:1.36
+          command: ["sh", "-c", "echo 'dependency not reachable' >&2; exit 1"]
+      containers:
+        - name: app
+          image: nginx:1.27-alpine

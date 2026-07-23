@@ -59,7 +59,25 @@ def collect(namespace: str, deployment: str | None = None, cluster_context: str 
             "reason": pod.status.reason,
             "node_selector": pod.spec.node_selector or {},
             "containers": [],
+            "init_containers": [],
         }
+        for ics in pod.status.init_container_statuses or []:
+            init_state = {}
+            if ics.state.waiting:
+                init_state = {"state": "waiting", "reason": ics.state.waiting.reason,
+                              "message": ics.state.waiting.message}
+            elif ics.state.terminated:
+                init_state = {"state": "terminated", "reason": ics.state.terminated.reason,
+                              "exit_code": ics.state.terminated.exit_code}
+            elif ics.state.running:
+                init_state = {"state": "running"}
+            pod_info["init_containers"].append({
+                "name": ics.name,
+                "current": init_state,
+                "logs": _logs(core, namespace, pod.metadata.name, ics.name, previous=False)
+                if init_state.get("state") != "running" else "",
+            })
+
         for cs in pod.status.container_statuses or []:
             state = {}
             if cs.state.waiting:

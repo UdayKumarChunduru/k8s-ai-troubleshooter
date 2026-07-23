@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-error-demo
+  labels:
+    app: config-error-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: config-error-demo
+  template:
+    metadata:
+      labels:
+        app: config-error-demo
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.27-alpine
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nonexistent-secret
+                  key: password
