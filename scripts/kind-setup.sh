@@ -23,7 +23,11 @@ cat <<'EOF'
 
 Done. Next steps:
   kubectl get nodes
+  kubectl get pods -A
   kubectl apply -f test-scenarios/
   docker compose up --build
+
+  If the backend cannot reach the cluster, attach it to the kind network:
+  docker network connect kind troubleshooter-backend
 
 EOF
