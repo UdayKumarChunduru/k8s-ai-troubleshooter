@@ -6,6 +6,8 @@ services:
     environment:
       - KUBECONFIG=/home/app/.kube/config
       - REDIS_URL=redis://redis:6379
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./kind-kubeconfig:/home/app/.kube/config:ro
       - app_data:/data
@@ -13,6 +15,9 @@ services:
       - "8000:8000"
     depends_on:
       - redis
+    networks:
+      - default
+      - kind
     restart: unless-stopped
 
   worker:
@@ -23,11 +28,16 @@ services:
     environment:
       - KUBECONFIG=/home/app/.kube/config
       - REDIS_URL=redis://redis:6379
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./kind-kubeconfig:/home/app/.kube/config:ro
       - app_data:/data
     depends_on:
       - redis
+    networks:
+      - default
+      - kind
     restart: unless-stopped
 
   redis:
@@ -46,5 +56,21 @@ services:
       - "3000:80"
     restart: unless-stopped
 
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: troubleshooter-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   restart: unless-stopped
+
 volumes:
   app_data:
+  # ollama_data:
+
+networks:
+  default: {}
+  kind:
+    external: true
+    name: kind
