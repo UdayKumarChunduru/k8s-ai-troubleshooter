@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p /data && chown -R app:app /srv/backend /data
+RUN mkdir -p /data /tmp/prometheus_multiproc && chown -R app:app /srv/backend /data /tmp/prometheus_multiproc
 
 USER app
 
