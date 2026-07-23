@@ -1,8 +1,7 @@
-import hashlib
 import os
-import secrets
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -10,27 +9,43 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import storage
 from models import Credentials, TokenResponse
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "change-me")
+DEFAULT_JWT_SECRET = "change-me"
+JWT_SECRET = os.environ.get("JWT_SECRET", DEFAULT_JWT_SECRET)
 JWT_EXPIRE_MINUTES = int(os.environ.get("JWT_EXPIRE_MINUTES", "120"))
+APP_ENV = os.environ.get("APP_ENV", "development")
 
 bearer = HTTPBearer()
 
 
-def _hash(password: str, salt: str) -> str:
-    return hashlib.sha256((salt + password).encode()).hexdigest()
+def validate_jwt_secret_on_startup():
+    if APP_ENV == "production" and JWT_SECRET == DEFAULT_JWT_SECRET:
+        raise RuntimeError(
+            "JWT_SECRET is still the default 'change-me' value with APP_ENV=production. "
+            "Set a real secret (see charts/k8s-troubleshooter/templates/secret.yaml) before starting."
+        )
+
+
+def _hash(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
+
+
+def _verify(password: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode(), password_hash.encode())
+    except ValueError:
+        return False
 
 
 def register(creds: Credentials) -> TokenResponse:
     if storage.get_user(creds.username):
         raise HTTPException(status_code=409, detail="Username already taken")
-    salt = secrets.token_hex(16)
-    user_id = storage.create_user(creds.username, _hash(creds.password, salt), salt)
+    user_id = storage.create_user(creds.username, _hash(creds.password))
     return _issue(user_id, creds.username)
 
 
 def login(creds: Credentials) -> TokenResponse:
     user = storage.get_user(creds.username)
-    if not user or _hash(creds.password, user["salt"]) != user["password_hash"]:
+    if not user or not _verify(creds.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return _issue(user["id"], user["username"])
 
