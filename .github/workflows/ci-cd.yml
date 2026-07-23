@@ -14,47 +14,54 @@ on:
         type: choice
         options: [staging, production]
 
-env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/k8s-troubleshooter-backend
-
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
+
       - name: Install dependencies
         run: |
           pip install -r backend/requirements.txt
           pip install pytest
+
       - name: Run tests
         run: PYTHONPATH=backend pytest tests/ -v
 
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
+
       - name: Install flake8
         run: pip install flake8
+
       - name: Run flake8
         run: flake8 backend --max-line-length=110 --extend-ignore=E203
 
   helm-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
+      - uses: actions/checkout@v7
+
+      - uses: azure/setup-helm@v5
         with:
-          version: "v3.15.2"
+          version: latest
+
       - name: helm dependency update
         run: helm dependency update charts/k8s-troubleshooter
+
       - name: helm lint
         run: helm lint charts/k8s-troubleshooter
+
       - name: helm template (sanity render)
         run: helm template test charts/k8s-troubleshooter
 
@@ -66,33 +73,49 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - uses: actions/checkout@v7
+
+      - name: Convert GitHub owner to lowercase
+        shell: bash
+        run: |
+          echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Verify image names
+        run: |
+          echo "Owner: $OWNER_LC"
+          echo "Backend: ghcr.io/$OWNER_LC/k8s-troubleshooter-backend"
+          echo "Frontend: ghcr.io/$OWNER_LC/k8s-troubleshooter-frontend"
+
+      - uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push backend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./backend
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/k8s-troubleshooter-backend:latest
+            ghcr.io/${{ env.OWNER_LC }}/k8s-troubleshooter-backend:${{ github.sha }}
+
       - name: Build and push frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/k8s-troubleshooter-frontend:latest
-            ghcr.io/${{ github.repository_owner }}/k8s-troubleshooter-frontend:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/k8s-troubleshooter-frontend:latest
+            ghcr.io/${{ env.OWNER_LC }}/k8s-troubleshooter-frontend:${{ github.sha }}
 
   deploy:
     if: github.event_name == 'workflow_dispatch'
@@ -100,21 +123,31 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
+      - uses: actions/checkout@v7
+
+      - name: Convert GitHub owner to lowercase
+        shell: bash
+        run: |
+          echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - uses: azure/setup-helm@v5
         with:
-          version: "v3.15.2"
+          version: latest
+
       - name: Configure kubeconfig
         run: |
           mkdir -p "$HOME/.kube"
           echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
+
       - name: helm upgrade --install
         run: |
           helm dependency update charts/k8s-troubleshooter
           helm upgrade --install troubleshooter charts/k8s-troubleshooter \
             --namespace troubleshooter --create-namespace \
             -f charts/k8s-troubleshooter/values-${{ github.event.inputs.environment }}.yaml \
+            --set image.repository=ghcr.io/${{ env.OWNER_LC }}/k8s-troubleshooter-backend \
             --set image.tag=${{ github.sha }} \
+            --set frontend.image.repository=ghcr.io/${{ env.OWNER_LC }}/k8s-troubleshooter-frontend \
             --set frontend.image.tag=${{ github.sha }} \
             --set secrets.jwtSecret=${{ secrets.JWT_SECRET }} \
             --set secrets.llmApiKey=${{ secrets.LLM_API_KEY }} \
