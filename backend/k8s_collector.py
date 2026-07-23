@@ -5,19 +5,37 @@ from kubernetes import client, config
 LOG_TAIL_LINES = int(os.environ.get("LOG_TAIL_LINES", "60"))
 
 
-def _load_config():
+def _load_config(cluster_context: str | None = None):
+    if cluster_context:
+        config.load_kube_config(config_file=os.environ.get("KUBECONFIG"), context=cluster_context)
+        return
     try:
         config.load_incluster_config()
     except config.ConfigException:
         config.load_kube_config(config_file=os.environ.get("KUBECONFIG"))
 
 
-def collect(namespace: str, deployment: str | None = None) -> dict:
-    _load_config()
+def list_contexts() -> list[str]:
+    try:
+        contexts, _ = config.list_kube_config_contexts(config_file=os.environ.get("KUBECONFIG"))
+        return [c["name"] for c in contexts]
+    except config.ConfigException:
+        return []
+
+
+def collect(namespace: str, deployment: str | None = None, cluster_context: str | None = None) -> dict:
+    _load_config(cluster_context)
     core = client.CoreV1Api()
     apps = client.AppsV1Api()
 
-    evidence = {"namespace": namespace, "deployments": [], "pods": [], "events": []}
+    evidence = {
+        "namespace": namespace,
+        "cluster_context": cluster_context,
+        "deployments": [],
+        "pods": [],
+        "events": [],
+        "nodes": [],
+    }
 
     deps = apps.list_namespaced_deployment(namespace).items
     if deployment:
@@ -38,6 +56,8 @@ def collect(namespace: str, deployment: str | None = None) -> dict:
         pod_info = {
             "name": pod.metadata.name,
             "phase": pod.status.phase,
+            "reason": pod.status.reason,
+            "node_selector": pod.spec.node_selector or {},
             "containers": [],
         }
         for cs in pod.status.container_statuses or []:
@@ -59,29 +79,44 @@ def collect(namespace: str, deployment: str | None = None) -> dict:
             container = {
                 "name": cs.name,
                 "restarts": cs.restart_count,
+                "ready": cs.ready,
                 "current": state,
                 "last_terminated": last_state,
                 "logs": "",
                 "previous_logs": "",
             }
 
-            healthy = state.get("state") == "running" and cs.restart_count == 0
+            healthy = state.get("state") == "running" and cs.restart_count == 0 and cs.ready
             if not healthy:
                 container["logs"] = _logs(core, namespace, pod.metadata.name, cs.name, previous=False)
                 if cs.restart_count > 0:
-                    container["previous_logs"] = _logs(core, namespace, pod.metadata.name, cs.name, previous=True)
+                    container["previous_logs"] = _logs(
+                        core, namespace, pod.metadata.name, cs.name, previous=True
+                    )
 
             pod_info["containers"].append(container)
         evidence["pods"].append(pod_info)
 
     events = core.list_namespaced_event(namespace).items
-    for ev in events[-30:]:
+    for ev in events[-40:]:
         if ev.type != "Normal":
             evidence["events"].append({
                 "reason": ev.reason,
                 "message": ev.message,
                 "object": f"{ev.involved_object.kind}/{ev.involved_object.name}",
                 "count": ev.count,
+            })
+
+    if any(p["phase"] == "Pending" for p in evidence["pods"]):
+        for node in core.list_node().items:
+            evidence["nodes"].append({
+                "name": node.metadata.name,
+                "allocatable": dict(node.status.allocatable or {}),
+                "conditions": [
+                    {"type": c.type, "status": c.status}
+                    for c in (node.status.conditions or [])
+                    if c.status == "True" and c.type != "Ready"
+                ],
             })
 
     return evidence
