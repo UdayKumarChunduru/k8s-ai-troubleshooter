@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pending-resource-demo
+  labels:
+    app: pending-resource-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pending-resource-demo
+  template:
+    metadata:
+      labels:
+        app: pending-resource-demo
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.27-alpine
+          resources:
+            requests:
+              cpu: "100"
+              memory: "4Gi"
