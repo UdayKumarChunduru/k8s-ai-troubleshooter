@@ -34,6 +34,9 @@
       <form id="investigate-form">
         <input type="text" id="namespace" placeholder="Namespace" required>
         <input type="text" id="deployment" placeholder="Deployment (optional)">
+        <select id="cluster-context">
+          <option value="">Current cluster (in-cluster / current kubeconfig context)</option>
+        </select>
         <button type="submit">Investigate</button>
       </form>
 

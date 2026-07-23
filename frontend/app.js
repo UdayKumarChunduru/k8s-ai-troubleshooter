@@ -14,6 +14,23 @@ function setView() {
   if (loggedIn) {
     $("whoami").textContent = localStorage.getItem("username") || "";
     loadHistory();
+    loadContexts();
+  }
+}
+
+async function loadContexts() {
+  try {
+    const data = await api("/contexts");
+    const select = $("cluster-context");
+    select.length = 1;
+    for (const name of data.contexts || []) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      select.appendChild(opt);
+    }
+  } catch (err) {
+    console.warn("Could not load kubeconfig contexts:", err.message);
   }
 }
 
@@ -21,7 +38,7 @@ async function api(path, options = {}) {
   options.headers = Object.assign(
     { "Content-Type": "application/json" },
     token() ? { Authorization: "Bearer " + token() } : {},
-    options.headers || {}
+                                  options.headers || {}
   );
   const resp = await fetch(API + path, options);
   if (resp.status === 401) {
@@ -42,8 +59,8 @@ $("auth-toggle").addEventListener("click", (e) => {
   $("auth-title").textContent = registerMode ? "Register" : "Log in";
   $("auth-submit").textContent = registerMode ? "Register" : "Log in";
   $("auth-toggle").textContent = registerMode
-    ? "Have an account? Log in"
-    : "Need an account? Register";
+  ? "Have an account? Log in"
+  : "Need an account? Register";
 });
 
 $("auth-form").addEventListener("submit", async (e) => {
@@ -54,7 +71,7 @@ $("auth-form").addEventListener("submit", async (e) => {
       method: "POST",
       body: JSON.stringify({
         username: $("username").value,
-        password: $("password").value,
+                           password: $("password").value,
       }),
     });
     localStorage.setItem("token", data.access_token);
@@ -78,7 +95,8 @@ $("investigate-form").addEventListener("submit", async (e) => {
     method: "POST",
     body: JSON.stringify({
       namespace: $("namespace").value,
-      deployment: $("deployment").value || null,
+                         deployment: $("deployment").value || null,
+                         cluster_context: $("cluster-context").value || null,
     }),
   });
   showProgress(inv);
@@ -121,16 +139,17 @@ async function loadHistory() {
     const summary = document.createElement("div");
     summary.className = "history-row";
     summary.textContent =
-      "#" + inv.id + "  " + inv.namespace +
-      (inv.deployment ? "/" + inv.deployment : "") +
-      "  [" + inv.status + "]" +
-      (inv.failure_pattern ? "  " + inv.failure_pattern : "");
+    "#" + inv.id + "  " + inv.namespace +
+    (inv.deployment ? "/" + inv.deployment : "") +
+    (inv.cluster_context ? "  @" + inv.cluster_context : "") +
+    "  [" + inv.status + "]" +
+    (inv.failure_pattern ? "  " + inv.failure_pattern : "");
     const detail = document.createElement("pre");
     detail.className = "hidden";
     detail.textContent =
-      "Root cause: " + (inv.root_cause || "-") +
-      "\nConfidence: " + (inv.confidence ?? "-") +
-      "\nFix commands:\n" + ((inv.fix_commands || []).join("\n") || "none");
+    "Root cause: " + (inv.root_cause || "-") +
+    "\nConfidence: " + (inv.confidence ?? "-") +
+    "\nFix commands:\n" + ((inv.fix_commands || []).join("\n") || "none");
     summary.addEventListener("click", () => detail.classList.toggle("hidden"));
     li.appendChild(summary);
     li.appendChild(detail);

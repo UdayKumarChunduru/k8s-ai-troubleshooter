@@ -24,7 +24,7 @@ main { max-width: 760px; margin: 0 auto; padding: 16px 24px 48px; }
 
 form { display: flex; gap: 8px; flex-wrap: wrap; }
 
-input {
+input, select {
   flex: 1;
   min-width: 180px;
   padding: 8px 10px;
@@ -51,11 +51,11 @@ button:hover { background: #3b7bf7; }
 #auth-panel a { color: #7aa2f7; }
 
 #progress {
-  margin-top: 16px;
-  padding: 16px;
-  background: #1c1f26;
-  border: 1px solid #2b2f38;
-  border-radius: 6px;
+margin-top: 16px;
+padding: 16px;
+background: #1c1f26;
+border: 1px solid #2b2f38;
+border-radius: 6px;
 }
 
 pre {
