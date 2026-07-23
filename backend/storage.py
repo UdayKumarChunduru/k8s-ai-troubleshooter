@@ -24,7 +24,6 @@ def _init(c):
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
-        salt TEXT NOT NULL,
         created_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS investigations (
@@ -32,6 +31,7 @@ def _init(c):
         user_id INTEGER NOT NULL REFERENCES users(id),
         namespace TEXT NOT NULL,
         deployment TEXT,
+        cluster_context TEXT,
         status TEXT NOT NULL DEFAULT 'queued',
         failure_pattern TEXT,
         root_cause TEXT,
@@ -48,10 +48,10 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def create_user(username, password_hash, salt) -> int:
+def create_user(username, password_hash) -> int:
     cur = conn().execute(
-        "INSERT INTO users (username, password_hash, salt, created_at) VALUES (?,?,?,?)",
-        (username, password_hash, salt, _now()),
+        "INSERT INTO users (username, password_hash, created_at) VALUES (?,?,?)",
+        (username, password_hash, _now()),
     )
     conn().commit()
     return cur.lastrowid
@@ -62,10 +62,11 @@ def get_user(username):
     return dict(row) if row else None
 
 
-def create_investigation(user_id, namespace, deployment) -> int:
+def create_investigation(user_id, namespace, deployment, cluster_context=None) -> int:
     cur = conn().execute(
-        "INSERT INTO investigations (user_id, namespace, deployment, created_at) VALUES (?,?,?,?)",
-        (user_id, namespace, deployment, _now()),
+        "INSERT INTO investigations (user_id, namespace, deployment, cluster_context, created_at) "
+        "VALUES (?,?,?,?,?)",
+        (user_id, namespace, deployment, cluster_context, _now()),
     )
     conn().commit()
     return cur.lastrowid
