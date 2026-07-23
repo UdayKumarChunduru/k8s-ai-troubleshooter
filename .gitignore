@@ -11,3 +11,6 @@ kind-kubeconfig
 .vscode/
 .DS_Store
 node_modules/
+charts/*/charts/
+charts/*/Chart.lock
+*.tgz
