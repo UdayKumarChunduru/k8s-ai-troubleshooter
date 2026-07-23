@@ -30,7 +30,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["rq", "worker", "investigations", "--url",
-                    "redis://{{ include "k8s-troubleshooter.fullname" . }}-redis-master:6379"]
+                    "redis://{{ include "k8s-troubleshooter.fullname" . }}-redis:6379"]
           env:
             - name: APP_ENV
               value: {{ .Values.env.appEnv | quote }}
@@ -55,7 +55,7 @@ spec:
             - name: PROMETHEUS_MULTIPROC_DIR
               value: "/prometheus-multiproc"
             - name: REDIS_URL
-              value: "redis://{{ include "k8s-troubleshooter.fullname" . }}-redis-master:6379"
+              value: "redis://{{ include "k8s-troubleshooter.fullname" . }}-redis:6379"
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:

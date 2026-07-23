@@ -87,11 +87,6 @@ prometheus:
 
 redis:
   enabled: false
-  auth:
-    enabled: false
-  master:
-    persistence:
-      enabled: false
 
 kubecontexts:
   enabled: false

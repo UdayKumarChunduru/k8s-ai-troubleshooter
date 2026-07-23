@@ -12,8 +12,3 @@ keywords:
 home: https://github.com/udaykumarchunduru/k8s-ai-troubleshooter
 maintainers:
   - name: Uday Kumar Chunduru
-dependencies:
-  - name: redis
-    version: "18.x.x"
-    repository: "https://charts.bitnami.com/bitnami"
-    condition: redis.enabled
