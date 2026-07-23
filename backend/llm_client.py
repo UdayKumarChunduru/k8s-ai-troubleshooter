@@ -68,13 +68,20 @@ class OllamaProvider:
     def __init__(self):
         self.base_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
         self.model = os.environ.get("OLLAMA_MODEL", "qwen3:4b")
+        self.timeout = int(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "300"))
 
     def analyze(self, evidence: dict, pattern: str) -> dict:
         prompt = f"{SYSTEM_PROMPT}\n\n{_user_prompt(evidence, pattern)}"
         resp = requests.post(
             f"{self.base_url}/api/generate",
-            json={"model": self.model, "prompt": prompt, "stream": False, "format": "json"},
-            timeout=120,
+            json={
+                "model": self.model,
+                "prompt": prompt,
+                "stream": False,
+                "format": "json",
+                "think": False,
+            },
+            timeout=self.timeout,
         )
         resp.raise_for_status()
         text = resp.json()["response"]
