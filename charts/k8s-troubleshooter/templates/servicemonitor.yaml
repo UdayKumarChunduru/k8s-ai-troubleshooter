@@ -1,0 +1,17 @@
+{{- if .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "k8s-troubleshooter.fullname" . }}
+  labels:
+    {{- include "k8s-troubleshooter.labels" . | nindent 4 }}
+    {{- toYaml .Values.prometheus.serviceMonitor.labels | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "k8s-troubleshooter.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.prometheus.serviceMonitor.interval }}
+{{- end }}
