@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: init-container-fail-demo
+  namespace: troubleshoot-demo
   labels:
     app: init-container-fail-demo
 spec:

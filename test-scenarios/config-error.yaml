@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: config-error-demo
+  namespace: troubleshoot-demo
   labels:
     app: config-error-demo
 spec:
