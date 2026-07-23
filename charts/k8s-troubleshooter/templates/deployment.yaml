@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "k8s-troubleshooter.fullname" . }}
+  labels:
+    {{- include "k8s-troubleshooter.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "k8s-troubleshooter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "k8s-troubleshooter.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "k8s-troubleshooter.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: backend
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: APP_ENV
+              value: {{ .Values.env.appEnv | quote }}
+            - name: LOG_TAIL_LINES
+              value: {{ .Values.env.logTailLines | quote }}
+            - name: LLM_PROVIDER
+              value: {{ .Values.llm.provider | quote }}
+            - name: OPENROUTER_MODEL
+              value: {{ .Values.llm.openrouter.model | quote }}
+            - name: OLLAMA_URL
+              value: {{ .Values.llm.ollama.url | quote }}
+            - name: OLLAMA_MODEL
+              value: {{ .Values.llm.ollama.model | quote }}
+            - name: BEDROCK_REGION
+              value: {{ .Values.llm.bedrock.region | quote }}
+            - name: BEDROCK_MODEL_ID
+              value: {{ .Values.llm.bedrock.modelId | quote }}
+            - name: DB_PATH
+              value: "/data/troubleshooter.db"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-troubleshooter.secretName" . }}
+                  key: jwt-secret
+            {{- if ne .Values.llm.provider "bedrock" }}
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-troubleshooter.secretName" . }}
+                  key: llm-api-key
+                  optional: true
+            {{- end }}
+            {{- if .Values.redis.enabled }}
+            - name: REDIS_URL
+              value: "redis://{{ include "k8s-troubleshooter.fullname" . }}-redis-master:6379"
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: data
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
