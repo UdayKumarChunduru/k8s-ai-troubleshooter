@@ -59,7 +59,7 @@ llm:
     model: "meta-llama/llama-3.1-8b-instruct"
   ollama:
     url: "http://ollama.default.svc.cluster.local:11434"
-    model: "llama3.1:8b"
+    model: "qwen3:4b"
   bedrock:
     region: "us-east-1"
     modelId: "anthropic.claude-3-5-sonnet-20240620-v1:0"

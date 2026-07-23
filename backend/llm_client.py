@@ -67,7 +67,7 @@ class OllamaProvider:
 
     def __init__(self):
         self.base_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-        self.model = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
+        self.model = os.environ.get("OLLAMA_MODEL", "qwen3:4b")
 
     def analyze(self, evidence: dict, pattern: str) -> dict:
         prompt = f"{SYSTEM_PROMPT}\n\n{_user_prompt(evidence, pattern)}"
