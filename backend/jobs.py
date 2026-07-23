@@ -55,6 +55,7 @@ def run_investigation(
                 inv_id, status="done",
                 root_cause="All containers in the namespace are running with zero restarts. Nothing to fix.",
                 confidence=95, fix_commands=[],
+                analysis_duration_seconds=round(time.monotonic() - start, 2),
             )
             metrics.record_investigation("done", pattern, time.monotonic() - start)
             return
@@ -75,6 +76,7 @@ def run_investigation(
             root_cause=result["root_cause"],
             confidence=result["confidence"],
             fix_commands=result["fix_commands"],
+            analysis_duration_seconds=round(time.monotonic() - start, 2),
         )
         metrics.record_investigation("done", pattern, time.monotonic() - start)
         logger.info("Investigation %d done, pattern %s, confidence %d",

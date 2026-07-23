@@ -30,4 +30,5 @@ class InvestigationResponse(BaseModel):
     confidence: Optional[int] = None
     fix_commands: Optional[list[str]] = None
     error: Optional[str] = None
+    analysis_duration_seconds: Optional[float] = None
     created_at: str

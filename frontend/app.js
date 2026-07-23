@@ -149,6 +149,7 @@ async function loadHistory() {
     detail.textContent =
     "Root cause: " + (inv.root_cause || "-") +
     "\nConfidence: " + (inv.confidence ?? "-") +
+    (inv.analysis_duration_seconds ? "\nAnalysis took: " + inv.analysis_duration_seconds + "s" : "") +
     "\nFix commands:\n" + ((inv.fix_commands || []).join("\n") || "none");
     summary.addEventListener("click", () => detail.classList.toggle("hidden"));
     li.appendChild(summary);

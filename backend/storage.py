@@ -38,6 +38,7 @@ def _init(c):
         confidence INTEGER,
         fix_commands TEXT,
         error TEXT,
+        analysis_duration_seconds REAL,
         created_at TEXT NOT NULL
     );
     """)
