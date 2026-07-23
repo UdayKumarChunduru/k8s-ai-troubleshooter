@@ -15,9 +15,6 @@ services:
       - "8000:8000"
     depends_on:
       - redis
-    networks:
-      - default
-      - kind
     restart: unless-stopped
 
   worker:
@@ -35,9 +32,6 @@ services:
       - app_data:/data
     depends_on:
       - redis
-    networks:
-      - default
-      - kind
     restart: unless-stopped
 
   redis:
@@ -53,7 +47,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "3000:80"
+      - "3000:8080"
     restart: unless-stopped
 
   # ollama:
@@ -68,9 +62,3 @@ services:
 volumes:
   app_data:
   # ollama_data:
-
-networks:
-  default: {}
-  kind:
-    external: true
-    name: kind
