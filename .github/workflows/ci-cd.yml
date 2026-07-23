@@ -1,0 +1,121 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment to deploy"
+        required: true
+        default: "staging"
+        type: choice
+        options: [staging, production]
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/k8s-troubleshooter-backend
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install pytest
+      - name: Run tests
+        run: PYTHONPATH=backend pytest tests/ -v
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install flake8
+        run: pip install flake8
+      - name: Run flake8
+        run: flake8 backend --max-line-length=110 --extend-ignore=E203
+
+  helm-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: "v3.15.2"
+      - name: helm dependency update
+        run: helm dependency update charts/k8s-troubleshooter
+      - name: helm lint
+        run: helm lint charts/k8s-troubleshooter
+      - name: helm template (sanity render)
+        run: helm template test charts/k8s-troubleshooter
+
+  build:
+    needs: [test, lint, helm-lint]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/k8s-troubleshooter-frontend:latest
+            ghcr.io/${{ github.repository_owner }}/k8s-troubleshooter-frontend:${{ github.sha }}
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch'
+    needs: [test, lint, helm-lint]
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: "v3.15.2"
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
+      - name: helm upgrade --install
+        run: |
+          helm dependency update charts/k8s-troubleshooter
+          helm upgrade --install troubleshooter charts/k8s-troubleshooter \
+            --namespace troubleshooter --create-namespace \
+            -f charts/k8s-troubleshooter/values-${{ github.event.inputs.environment }}.yaml \
+            --set image.tag=${{ github.sha }} \
+            --set frontend.image.tag=${{ github.sha }} \
+            --set secrets.jwtSecret=${{ secrets.JWT_SECRET }} \
+            --set secrets.llmApiKey=${{ secrets.LLM_API_KEY }} \
+            --wait --timeout 5m
